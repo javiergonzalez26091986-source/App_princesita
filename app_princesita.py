@@ -1,54 +1,36 @@
-import tkinter as tk
-from tkinter import messagebox
+import streamlit as st
 
-def agregar_item():
-    item = entrada_producto.get()
-    if item != "":
-        lista_compras.insert(tk.END, item)
-        entrada_producto.delete(0, tk.END)
-    else:
-        messagebox.showwarning("Atención", "Por favor, escribe un producto.")
+# Configuración de estilo
+st.set_page_config(page_title="Lista de Mercar", page_icon="🛒")
 
-def eliminar_item():
-    try:
-        seleccion = lista_compras.curselection()
-        lista_compras.delete(seleccion)
-    except:
-        messagebox.showwarning("Atención", "Selecciona un producto para eliminar.")
+st.title("🛒 Lista de Mercar")
+st.write("¡Hola! Aquí puedes anotar lo que necesitemos.")
 
-def limpiar_lista():
-    confirmacion = messagebox.askyesno("Confirmar", "¿Deseas borrar toda la lista?")
-    if confirmacion:
-        lista_compras.delete(0, tk.END)
+# Inicializar la lista si no existe
+if 'market_list' not in st.session_state:
+    st.session_state.market_list = []
 
-# Configuración de la ventana principal
-ventana = tk.Tk()
-ventana.title("Lista para Mercar")
-ventana.geometry("400x500")
+# Entrada de texto
+item = st.text_input("Producto nuevo:", placeholder="Ej: Arroz, leche...")
 
-# Elementos de la interfaz
-etiqueta = tk.Label(ventana, text="Producto:", font=("Arial", 12))
-etiqueta.pack(pady=10)
+if st.button("Agregar a la lista"):
+    if item:
+        st.session_state.market_list.append(item)
+        st.rerun()
 
-entrada_producto = tk.Entry(ventana, font=("Arial", 14), width=25)
-entrada_producto.pack(pady=5)
+st.divider()
 
-boton_agregar = tk.Button(ventana, text="Añadir a la lista", command=agregar_item, bg="#4CAF50", fg="white", font=("Arial", 10, "bold"))
-boton_agregar.pack(pady=10)
-
-# Lista visual
-lista_compras = tk.Listbox(ventana, font=("Arial", 12), width=35, height=10)
-lista_compras.pack(pady=10)
-
-# Botones de acción
-marco_botones = tk.Frame(ventana)
-marco_botones.pack(pady=10)
-
-boton_eliminar = tk.Button(marco_botones, text="Eliminar seleccionado", command=eliminar_item, bg="#f44336", fg="white")
-boton_eliminar.grid(row=0, column=0, padx=5)
-
-boton_limpiar = tk.Button(marco_botones, text="Vaciar lista", command=limpiar_lista, bg="#555555", fg="white")
-boton_limpiar.grid(row=0, column=1, padx=5)
-
-# Ejecutar la aplicación
-ventana.mainloop()
+# Mostrar los productos
+if st.session_state.market_list:
+    for i, producto in enumerate(st.session_state.market_list):
+        col1, col2 = st.columns([0.8, 0.2])
+        col1.write(f"✅ {producto}")
+        if col2.button("Eliminar", key=f"delete_{i}"):
+            st.session_state.market_list.pop(i)
+            st.rerun()
+            
+    if st.button("Limpiar toda la lista"):
+        st.session_state.market_list = []
+        st.rerun()
+else:
+    st.write("La lista está vacía.")
