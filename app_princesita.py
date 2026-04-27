@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
+# Mantengo el nombre y la configuración original
 st.set_page_config(page_title="Mercado & Gestión Hogar", page_icon="🏡", layout="wide")
 
-# --- 1. INICIALIZACIÓN DE DATOS ---
 if 'productos' not in st.session_state:
     st.session_state.productos = [
         {"nombre": "Arroz", "precio_ref": 2100, "cat": "Granos", "unidad": "Libra", "comprado": False, "stock": 0, "cant_comprada": 0},
@@ -21,39 +21,36 @@ if 'historial_compras' not in st.session_state:
 
 st.title("🏡 Gestión de Mercado e Inventario")
 
-# --- 2. LISTA DE MERCADO (Diseño optimizado y lógica de precio auto) ---
+# --- 2. LISTA DE MERCADO (Campos alineados a la derecha) ---
 st.header("📝 Lista de Mercado")
 with st.expander("Ver estantería de productos", expanded=True):
     for i, p in enumerate(st.session_state.productos):
         if not p["comprado"]:
-            # Ajustamos los anchos de columna: Nombre grande (4), controles pequeños (1 cada uno)
-            c1, c2, c3, c4, c5 = st.columns([4, 1.5, 1.5, 2, 1.5])
+            # Usamos columnas muy estrechas para los números para forzar la alineación derecha
+            c1, c2, c3, c4, c5 = st.columns([3, 1.2, 1.2, 1.5, 1.2])
             
-            c1.markdown(f"**{p['nombre']}** \n*{p['cat']}*")
+            c1.write(f"**{p['nombre']}** ({p['cat']})")
             
             # Unidad
             unid_list = ["Libra", "Kilo", "Litro", "Bolsa", "Paquete", "Cubeta", "Unidad"]
-            if p["unidad"] not in unid_list: unid_list.append(p["unidad"])
-            nueva_unid = c2.selectbox("Unid.", unid_list, index=unid_list.index(p["unidad"]), key=f"u_{i}", label_visibility="collapsed")
+            nueva_unid = c2.selectbox("Unid.", unid_list, index=unid_list.index(p["unidad"]) if p["unidad"] in unid_list else 0, key=f"u_{i}")
             
-            # Cantidad
-            nueva_cant = c3.number_input("Cant.", value=1.0, min_value=0.1, key=f"c_{i}", step=0.5, label_visibility="collapsed")
+            # Cantidad y Precio unitario
+            nueva_cant = c3.number_input("Cant.", value=1.0, min_value=0.1, key=f"c_{i}", step=0.5)
+            precio_u = c4.number_input("$/Unid", value=float(p["precio_ref"]), key=f"p_{i}", step=100.0)
             
-            # Precio Unitario y Cálculo de total automático para esa fila
-            precio_unit = c4.number_input("$/Unid", value=float(p["precio_ref"]), key=f"p_{i}", step=100.0, label_visibility="collapsed")
-            total_fila = precio_unit * nueva_cant
-            
-            # Mostrar el subtotal dinámico antes de agregar
-            if c5.button(f"🛒 ${total_fila:,.0f}", key=f"add_{i}", help="Agregar al carrito"):
+            # Subtotal automático en el botón
+            subtotal = precio_u * nueva_cant
+            if c5.button(f"🛒 ${subtotal:,.0f}", key=f"add_{i}"):
                 st.session_state.productos[i].update({
                     "unidad": nueva_unid,
-                    "precio_ref": precio_unit,
+                    "precio_ref": precio_u,
                     "cant_comprada": nueva_cant,
                     "comprado": True
                 })
                 st.rerun()
 
-# --- 3. CARRITO ACTUAL ---
+# --- 3. CARRITO ACTUAL (Con opción de quitar) ---
 st.divider()
 st.header("🛒 Carrito del Día")
 comprados_ahora = [p for p in st.session_state.productos if p["comprado"]]
@@ -62,17 +59,16 @@ if comprados_ahora:
     for i, p in enumerate(st.session_state.productos):
         if p["comprado"]:
             col_a, col_b = st.columns([5, 1])
-            subtotal = p["precio_ref"] * p["cant_comprada"]
-            col_a.write(f"✅ **{p['nombre']}**: {p['cant_comprada']} {p['unidad']} — **${subtotal:,.0f}**")
-            
+            total_item = p["precio_ref"] * p["cant_comprada"]
+            col_a.write(f"✅ **{p['nombre']}**: {p['cant_comprada']} {p['unidad']} (${total_item:,.0f})")
             if col_b.button("❌", key=f"rem_{i}"):
                 st.session_state.productos[i]["comprado"] = False
                 st.rerun()
     
-    total_hoy = sum(p["precio_ref"] * p["cant_comprada"] for p in st.session_state.productos if p["comprado"])
-    st.metric("Total a pagar", f"${total_hoy:,.0f} COP")
+    total_compra = sum(p["precio_ref"] * p["cant_comprada"] for p in st.session_state.productos if p["comprado"])
+    st.metric("Total", f"${total_compra:,.0f}")
     
-    if st.button("💰 Confirmar Compra y Cargar Stock"):
+    if st.button("💰 Finalizar y Cargar al Inventario"):
         for p in st.session_state.productos:
             if p["comprado"]:
                 st.session_state.historial_compras.append({
@@ -82,15 +78,31 @@ if comprados_ahora:
                 })
                 p["stock"] += p["cant_comprada"]
                 p["comprado"] = False
-        st.success("¡Compra guardada!")
+        st.success("¡Inventario actualizado!")
         st.rerun()
 else:
-    st.write("Selecciona productos arriba.")
+    st.write("Carrito vacío.")
 
-# --- 4. INVENTARIO ---
+# --- 4. INVENTARIO (Lógica restaurada) ---
 st.divider()
 st.header("📦 Inventario en Casa")
 for i, p in enumerate(st.session_state.productos):
     if p["stock"] > 0:
-        c1, c2
+        c1, c2, c3 = st.columns([3, 1, 1])
+        c1.write(f"**{p['nombre']}**")
+        c2.write(f"Stock: {p['stock']} {p['unidad']}")
+        # Input para gasto con máximo igual al stock disponible
+        gasto = c3.number_input("Gastar:", value=0.0, min_value=0.0, max_value=float(p["stock"]), key=f"inv_{i}", step=0.1)
+        if c3.button("Confirmar Gasto", key=f"ubtn_{i}"):
+            if gasto > 0:
+                st.session_state.productos[i]["stock"] -= gasto
+                st.rerun()
+
+# --- 5. INFORME POR JERARQUÍA ---
+st.divider()
+st.header("📊 Informe de Gastos")
+if st.session_state.historial_compras:
+    df_hist = pd.DataFrame(st.session_state.historial_compras)
+    resumen = df_hist.groupby("cat")["gasto"].sum().reset_index()
+    st.bar_chart(resumen.set_index("cat"))
     st.table(resumen.style.format({"gasto": "${:,.0f}"}))
